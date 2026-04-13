@@ -8,9 +8,8 @@
 - **Domain**: US countrywide traffic accidents across 49 states
 
 ## 🏗️ Architecture
-```
+
 Raw CSV → Azure Data Lake Storage Gen2 → Azure Databricks (PySpark) → Azure SQL Database → Power BI
-```
 
 ## ⚙️ Tech Stack
 | Layer | Technology |
@@ -22,13 +21,12 @@ Raw CSV → Azure Data Lake Storage Gen2 → Azure Databricks (PySpark) → Azur
 | Version Control | GitHub |
 
 ## 📁 Repository Structure
-```
-├── notebooks/          # Databricks PySpark notebooks
-├── sql/                # DDL scripts for Azure SQL Database
-├── powerbi/            # Power BI dashboard (.pbix)
-├── docs/               # Architecture diagram & report
-└── data-sample/        # Small sample of dataset (not full 3GB)
-```
+
+- notebooks/ — Databricks PySpark notebooks
+- sql/ — DDL scripts for Azure SQL Database
+- powerbi/ — Power BI dashboard (.pbix)
+- docs/ — Architecture diagram & report
+- data-sample/ — Small sample of dataset (not full 3GB)
 
 ## 🔍 Key Findings
 - **Top state**: California with 1.74M accidents
