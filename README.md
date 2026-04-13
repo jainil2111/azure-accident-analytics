@@ -11,6 +11,8 @@
 
 Raw CSV → Azure Data Lake Storage Gen2 → Azure Databricks (PySpark) → Azure SQL Database → Power BI
 
+![Architecture Diagram](docs/architecture_diagram.png)
+
 ## ⚙️ Tech Stack
 | Layer | Technology |
 |---|---|
