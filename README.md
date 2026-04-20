@@ -6,11 +6,7 @@ End-to-end data engineering pipeline on Microsoft Azure processing 7.7 million U
 
 ## Architecture
 
-```
-Raw CSV → Azure Data Lake Storage Gen2 → Azure Databricks (PySpark) → Azure SQL Database → Power BI
-                                                    ↑
-                                        Azure Data Factory (Orchestration)
-```
+![System Architecture](docs/01_azure_architecture_v2.png)
 
 ---
 
@@ -31,7 +27,7 @@ Raw CSV → Azure Data Lake Storage Gen2 → Azure Databricks (PySpark) → Azur
 | Storage | Azure Data Lake Storage Gen2 |
 | Processing | Azure Databricks (Apache Spark 3.4.1) |
 | Orchestration | Azure Data Factory |
-| Serving | Azure SQL Database |
+| Serving | Azure SQL Server + SQL Database |
 | Visualization | Power BI Desktop |
 | Infrastructure | Terraform (IaaC) |
 | Version Control | GitHub |
@@ -55,12 +51,16 @@ azure-accident-analytics/
 ├── terraform/
 │   └── main.tf
 ├── docs/
-│   └── architecture_diagram.png
-├── pipeline_screenshot/
-│   ├── 1.ingestion/
-│   ├── 2.cleaning/
-│   ├── 3.serving/
-│   └── 4.orchestration/
+│   ├── 01_azure_architecture_v2.png
+│   ├── 02_adf_pipeline.png
+│   ├── 03_data_flow.png
+│   └── 04_azure_resources.png
+├── screenshots/
+│   ├── ingestion/
+│   ├── cleaning/
+│   ├── serving/
+│   ├── dashboards/
+│   └── adf/
 └── README.md
 ```
 
@@ -71,21 +71,45 @@ azure-accident-analytics/
 | Notebook | Description |
 |---|---|
 | `01_ingest_explore.ipynb` | Mount ADLS, read CSV, profile data, null analysis |
-| `02_clean_transform.ipynb` | Clean data, handle nulls, build 5 aggregate tables, write Parquet |
-| `03_load_sql.ipynb` | Load aggregate tables from ADLS to Azure SQL DB via JDBC |
+| `02_clean_transform.ipynb` | Clean data, handle nulls, build 5 aggregate tables + agg_master, write Parquet |
+| `03_load_sql.ipynb` | Load all 6 tables from ADLS to Azure SQL DB via JDBC |
 
 ---
 
 ## Pipeline Orchestration (Azure Data Factory)
 
-The pipeline is fully automated using Azure Data Factory (`adf/pipeline_accident_analytics.json`).
+![ADF Pipeline](docs/02_adf_pipeline.png)
 
-- **Trigger:** Daily schedule at 6:00 AM
+The pipeline is orchestrated using Azure Data Factory (`adf/pipeline_accident_analytics.json`).
+
+- **Trigger:** Manual — run on demand via ADF Studio
 - **Flow:** `act_ingest` → `act_clean` → `act_load_sql`
 - Each activity runs the corresponding Databricks notebook in sequence
 - If any notebook fails, the pipeline stops and downstream activities are skipped
 
 To import the pipeline into your own ADF instance, upload `adf/pipeline_accident_analytics.json` via ADF Studio → Author → Import from pipeline template.
+
+---
+
+## Data Flow
+
+![Data Flow](docs/03_data_flow.png)
+
+---
+
+## Azure Resources
+
+![Azure Resources](docs/04_azure_resources.png)
+
+| Resource | Name | Details |
+|---|---|---|
+| Resource Group | data-engineering-project | Canada Central |
+| Storage Account | deprojectstorage1 | ADLS Gen2, raw + processed containers |
+| Databricks Workspace | de-project-databricks | Standard tier, Runtime 13.3 LTS |
+| Databricks Cluster | de-project-cluster | Standard_D4ds_v5, 16 GB, 4 cores |
+| SQL Server | deprojectserver2026 | deprojectserver2026.database.windows.net |
+| SQL Database | de-project-db | Free tier, 6 tables |
+| Data Factory | adf-accident-analytics | Manual trigger, 1 pipeline |
 
 ---
 
@@ -98,6 +122,44 @@ To import the pipeline into your own ADF instance, upload `adf/pipeline_accident
 | `agg_by_time` | 84 | Accidents by year and month |
 | `agg_by_weather` | 20 | Top 20 weather conditions and avg severity |
 | `agg_by_hour` | 24 | Accidents by hour of day |
+| `agg_master` | ~400K | Master fact table — State · Severity · Year · Hour · Weather combined for interactive Power BI cross-filtering |
+
+---
+
+## Interactive Power BI Dashboard
+
+Built on `agg_master` — a single denormalized fact table combining all 5 dimensions enabling full cross-filtering across all visuals and pages simultaneously.
+
+**Page 1 — National Overview**
+- KPI cards: Total Accidents · States Covered · Avg Severity · Peak Hour
+- Bar chart: Top 10 states by accidents
+- Donut chart: Severity distribution
+- Slicers: State · Severity · Year
+
+**Page 2 — Time Analysis**
+- Line chart: Accident trend by year (2016–2023)
+- Bar chart: Accidents by hour of day
+- Slicers: State · Severity · Year
+
+**Page 3 — Weather Analysis**
+- Bar chart: Top 10 weather conditions by accidents
+- Bar chart: Average severity by weather condition
+- Slicers: State · Severity · Year
+
+---
+
+## Infrastructure as Code (Terraform)
+
+All Azure resources are defined in `terraform/main.tf`. To recreate the entire environment:
+
+```bash
+cd terraform
+terraform init
+terraform plan
+terraform apply
+```
+
+Resources managed: resource group · storage account (ADLS Gen2) · Databricks workspace · SQL server · SQL database · Azure Data Factory
 
 ---
 
@@ -111,23 +173,15 @@ To import the pipeline into your own ADF instance, upload `adf/pipeline_accident
 
 ---
 
-## Power BI Dashboard
-
-- **Page 1** — Accidents by State (bar chart) and Severity Distribution (pie chart)
-- **Page 2** — Year Trend (line chart) and Accidents by Hour of Day (bar chart)
-- **Page 3** — Weather Conditions (bar chart) and Average Severity by Weather (bar chart)
-
----
-
 ## Pipeline Setup (Manual)
 
 1. Upload `US_Accidents_March23.csv` to ADLS Gen2 `raw` container
 2. Run `notebooks/01_ingest_explore.ipynb` to explore data
 3. Run `notebooks/02_clean_transform.ipynb` to clean and transform
-4. Run `notebooks/03_load_sql.ipynb` to load aggregates to Azure SQL Database
+4. Run `notebooks/03_load_sql.ipynb` to load all tables to Azure SQL Database
 5. Open `powerbi/us_accidents_dashboard.pbix` in Power BI Desktop
 
-Or trigger the full pipeline automatically via Azure Data Factory.
+Or trigger the full pipeline via Azure Data Factory → Add trigger → Trigger now.
 
 ---
 
